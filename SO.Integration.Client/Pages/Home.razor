@@ -1,0 +1,137 @@
+﻿@page "/"
+@using System.Text
+@using System.Text.Json
+@using SO.Integration.Client.Services
+@inject ISnackbar Snackbar
+@inject IFileTransformerHttpClient FileTransformerHttpClient
+@inject IJSRuntime JS
+@using SO.Integration.Client.Models
+@using SO.Integration.Client.Models.Input
+
+<PageTitle>Home</PageTitle>
+
+<MudPaper Style="width: 100%">
+	<MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Class="my-10 pa-5" Style="width: 100%" Row="true">
+		<MudFileUpload T="IBrowserFile" FilesChanged="UploadFiles">
+			<ButtonTemplate>
+				<MudButton HtmlTag="label"
+							Variant="Variant.Filled"
+							Color="Color.Primary"
+							StartIcon="@Icons.Material.Filled.CloudUpload"
+							for="@context.Id">
+					Upload Files
+				</MudButton>
+			</ButtonTemplate>
+		</MudFileUpload>
+		@if (_files.Count > 0)
+		{
+				@foreach (var file in _files)
+				{
+					<MudText>
+						@file.Name <code>@file.Size bytes</code>
+					</MudText>
+				}
+		}
+	</MudStack>
+</MudPaper>
+
+<MudStack Row="true" Style="width: 100%">
+	<MudCard Style="width: 50%">
+		<MudCardHeader>
+			<CardHeaderContent>
+				<MudText Align="Align.Center" Typo="Typo.h6">Input</MudText>
+			</CardHeaderContent>
+		</MudCardHeader>
+		@if (InputJson != null)
+		{
+			<MudCardContent>
+				<MudText>
+						<pre>
+						@InputJson
+					</pre>
+				</MudText>
+			</MudCardContent>
+		}
+	</MudCard>
+	<MudCard Style="width: 50%">
+		<MudCardHeader>
+			<CardHeaderContent>
+				<MudText Align="Align.Center" Typo="Typo.h6">Output</MudText>
+			</CardHeaderContent>
+			<CardHeaderActions>
+				<MudIconButton OnClick="DownloadFileFromStream"
+					Icon="@Icons.Material.Filled.Download"
+					Color="Color.Default"/>
+			</CardHeaderActions>
+		</MudCardHeader>
+		@if (OutputJson != null)
+		{
+			<MudCardContent>
+				<MudText>
+					<pre>
+					@OutputJson
+				</pre>
+				</MudText>
+			</MudCardContent>
+		}
+	</MudCard>
+</MudStack>
+
+@code {
+	readonly IList<IBrowserFile> _files = new List<IBrowserFile>();
+	string? OutputJson { get; set; }
+	string? InputJson { get; set; }
+	string FileName { get; set; } = "transformed-file.json";
+
+	private async void UploadFiles(IBrowserFile file)
+	{
+		_files.Add(file);
+		ReadInputFile(file);
+		var response = await FileTransformerHttpClient.TransformFileAsync(file);
+
+		if (!response.IsSuccessStatusCode)
+		{
+			Snackbar.Add("Failed to upload file", Severity.Error);
+		}
+
+		var salesOrder = await response.Content.ReadFromJsonAsync<OutputRoot>();
+
+		if(salesOrder == null)
+		{
+			Snackbar.Add("Failed to read response from server", Severity.Error);
+			return;
+		}
+
+		OutputJson = JsonSerializer.Serialize(salesOrder, new JsonSerializerOptions() { WriteIndented = true });
+		FileName = $"{salesOrder.Order.OrderRef}-{salesOrder.Order.CategoryCode}-{DateTime.Now.Date}.json";
+
+		StateHasChanged();
+	}
+
+	private async void ReadInputFile(IBrowserFile file)
+	{
+		using var reader = new StreamReader(file.OpenReadStream());
+		var content = await reader.ReadToEndAsync();
+
+		var salesOrderRequest = JsonSerializer.Deserialize<SalesOrderRequestRoot>(content);
+
+		InputJson = JsonSerializer.Serialize(salesOrderRequest, new JsonSerializerOptions() { WriteIndented = true });
+	}
+
+	private async Task DownloadFileFromStream()
+	{
+		if(OutputJson == null)
+		{
+			Snackbar.Add("Failed to download file, please re-upload", Severity.Error);
+			return;
+		}
+
+		var stream = new MemoryStream(Encoding.UTF8.GetBytes(OutputJson));
+
+		using var streamRef = new DotNetStreamReference(stream);
+
+		await JS.InvokeVoidAsync("downloadFileFromStream", FileName, streamRef);
+
+		StateHasChanged();
+	}
+}

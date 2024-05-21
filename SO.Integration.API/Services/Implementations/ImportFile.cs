@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SO.Integration.API.Domain.Exceptions;
 using SO.Integration.API.Domain.Input;
 using SO.Integration.API.Domain.Output;
 
@@ -14,21 +15,11 @@ public class ImportFile : IImportFile
 		var salesOrderRequest = JsonSerializer.Deserialize<SalesOrderRequestRoot>(content);
 
 		if (salesOrderRequest == null)
-			throw new Exception("Invalid file format.");
+			throw new DeserializeFailureException(file.FileName);
+
+		if(salesOrderRequest.SalesOrderRequest == null)
+			throw new DeserializeFailureException(file.FileName);
 
 		return salesOrderRequest;
-	}
-
-	public async Task<OutputRoot> ImportOutputFileAsync(IFormFile file)
-	{
-		using var reader = new StreamReader(file.OpenReadStream());
-		var content = await reader.ReadToEndAsync();
-
-		var output = JsonSerializer.Deserialize<OutputRoot>(content);
-
-		if (output == null)
-			throw new Exception("Invalid file format.");
-
-		return output;
 	}
 }

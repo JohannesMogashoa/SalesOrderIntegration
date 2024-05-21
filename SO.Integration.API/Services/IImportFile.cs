@@ -6,5 +6,4 @@ namespace SO.Integration.API.Services;
 public interface IImportFile
 {
 	Task<SalesOrderRequestRoot> ImportInputFileAsync(IFormFile file);
-	Task<OutputRoot> ImportOutputFileAsync(IFormFile file);
 }

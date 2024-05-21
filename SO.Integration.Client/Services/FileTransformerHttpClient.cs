@@ -12,7 +12,7 @@ public class FileTransformerHttpClient(HttpClient httpClient) : IFileTransformer
 		fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
 		content.Add(content: fileContent, name: "file", fileName: file.Name);
 
-		var response = await httpClient.PostAsync("api/upload/input", content);
+		var response = await httpClient.PostAsync("api/upload/", content);
 		return response;
 	}
 }

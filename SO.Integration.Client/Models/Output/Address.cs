@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SO.Integration.Client.Models;
+namespace SO.Integration.Client.Models.Output;
 
 public class Address
 {

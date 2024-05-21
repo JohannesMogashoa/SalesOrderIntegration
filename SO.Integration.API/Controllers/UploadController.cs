@@ -9,15 +9,14 @@ namespace SO.Integration.API.Controllers;
 [ApiController]
 public class UploadController(IImportFile importFile, ITransformSalesOrder salesOrderTransformer) : Controller
 {
-	[HttpPost("input")]
+	[HttpPost]
 	public async Task<IActionResult> Upload([FromForm] IFormFile file)
 	{
 		var salesOrderRequest = await importFile.ImportInputFileAsync(file);
 		var outputRoot = salesOrderTransformer.TransformInputToOutput(salesOrderRequest);
 
 		var byteArray = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(outputRoot, salesOrderTransformer.Options));
-		MemoryStream stream = new(byteArray);
-		const string fileName = "output.json";
+		var fileName = $"{outputRoot.Order.OrderRef}-{outputRoot.Order.CategoryCode}-{DateTime.Now.ToShortDateString()}.json";
 
 		// Return the file as a downloadable file with proper headers
 		var contentDispositionHeader = new System.Net.Mime.ContentDisposition
@@ -29,15 +28,5 @@ public class UploadController(IImportFile importFile, ITransformSalesOrder sales
 		Response.Headers.Append("Content-Disposition", contentDispositionHeader.ToString());
 
 		return File(byteArray, "application/json");
-	}
-
-	[HttpPost("output")]
-	public async Task<IActionResult> UploadOutput(IFormFile file)
-	{
-		var output = await importFile.ImportOutputFileAsync(file);
-		return Json(new
-		{
-			data = output
-		});
 	}
 }
